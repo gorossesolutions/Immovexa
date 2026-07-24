@@ -20,6 +20,7 @@ import { renderAdminTenantDetail } from "./pages/admin/tenant-detail";
 import { renderAdminOwners } from "./pages/admin/owners";
 import { renderAdminOwnerDetail } from "./pages/admin/owner-detail";
 import { renderAdminSettings } from "./pages/admin/settings";
+import { renderAdminContacts } from "./pages/admin/contacts";
 import { renderOwnerDashboard } from "./pages/owner/dashboard";
 import { renderOwnerProperties } from "./pages/owner/properties";
 import { renderOwnerPropertyDetail } from "./pages/owner/property-detail";
@@ -52,6 +53,7 @@ registerRoute({ path: "/admin/tenants/:id", roles: ["admin", "agent"], render: r
 registerRoute({ path: "/admin/owners", roles: ["admin", "agent"], render: renderAdminOwners });
 registerRoute({ path: "/admin/owners/:id", roles: ["admin", "agent"], render: renderAdminOwnerDetail });
 registerRoute({ path: "/admin/settings", roles: ["admin"], render: renderAdminSettings });
+registerRoute({ path: "/admin/vendors", roles: ["admin", "agent"], render: renderAdminContacts });
 registerRoute({ path: "/owner", roles: ["owner"], entitlement: "portal.owner", render: renderOwnerDashboard });
 registerRoute({ path: "/owner/properties", roles: ["owner"], entitlement: "portal.owner", render: renderOwnerProperties });
 registerRoute({ path: "/owner/properties/:id", roles: ["owner"], entitlement: "portal.owner", render: renderOwnerPropertyDetail });

@@ -1,4 +1,4 @@
-export const CARD_CLASSES = "bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800";
+export const CARD_CLASSES = "bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm";
 
 export interface DetailField {
   label: string;

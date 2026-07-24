@@ -23,6 +23,7 @@ const ICON_PATHS: Record<string, string> = {
   wrench: '<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2-2 2.6-2.6z"/>',
   tag: '<path d="M20.6 12.3 12 3.7a1.5 1.5 0 0 0-1-.4H4.5A1.5 1.5 0 0 0 3 4.8v6.5c0 .4.2.8.4 1L12 20.9c.6.6 1.5.6 2.1 0l6.5-6.5c.6-.6.6-1.5 0-2.1z"/><circle cx="7.5" cy="8.5" r="1.2"/>',
   settings: '<circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4"/>',
+  contact: '<rect x="4" y="3" width="16" height="18" rx="2"/><circle cx="12" cy="10" r="2.3"/><path d="M8 16.5c0-1.9 1.8-3.3 4-3.3s4 1.4 4 3.3"/><line x1="4" y1="7" x2="5.2" y2="7"/><line x1="4" y1="17" x2="5.2" y2="17"/>',
 };
 
 function icon(name: keyof typeof ICON_PATHS, sizeClass = "w-[18px] h-[18px]"): string {
@@ -39,6 +40,7 @@ const ADMIN_NAV: NavItem[] = [
   { label: "Paiements", path: "/admin/payments", icon: "credit-card" },
   { label: "Documents", path: "/admin/documents", icon: "folder" },
   { label: "Maintenance", path: "/admin/maintenance", icon: "wrench" },
+  { label: "Prestataires", path: "/admin/vendors", icon: "contact" },
 ];
 const SETTINGS_NAV: NavItem = { label: "Paramètres", path: "/admin/settings", icon: "settings" };
 
@@ -223,7 +225,7 @@ export function renderPortalShell(profile: Profile, activePath: string): HTMLEle
   app.innerHTML = `
     <div class="min-h-screen flex bg-accent dark:bg-slate-950 font-sans">
       <div id="sidebar-overlay" class="fixed inset-0 bg-black/40 z-30 hidden md:hidden"></div>
-      <aside id="portal-sidebar" class="fixed md:static inset-y-0 left-0 z-40 w-56 shrink-0 bg-primary flex flex-col -translate-x-full md:translate-x-0 transition-transform md:transition-[width] duration-150 overflow-hidden relative">
+      <aside id="portal-sidebar" class="fixed md:relative inset-y-0 left-0 z-40 w-56 shrink-0 bg-primary flex flex-col -translate-x-full md:translate-x-0 transition-transform md:transition-[width] duration-150 overflow-hidden">
         <div class="absolute -top-16 -right-12 w-44 h-44 rounded-full bg-secondary/20 blur-3xl pointer-events-none"></div>
         <div class="absolute -bottom-20 -left-12 w-52 h-52 rounded-full bg-secondary/10 blur-3xl pointer-events-none"></div>
         <div id="sidebar-header" class="relative px-4 py-4 border-b border-white/10 flex items-start justify-between gap-2">

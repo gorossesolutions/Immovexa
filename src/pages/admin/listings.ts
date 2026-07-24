@@ -220,6 +220,7 @@ export async function renderAdminListings() {
     renderDataTable(tableEl, {
       rows: listings,
       emptyMessage: "Aucune annonce.",
+      emptyCta: { label: "Nouvelle annonce", onClick: () => content.querySelector<HTMLButtonElement>("#new-listing")!.click() },
       onRowClick: (l) => navigate(`/admin/listings/${l.id}`),
       columns: [
         { label: "Bien", render: (l) => (l.property ? `${l.property.reference} — ${l.property.city}` : "—") },

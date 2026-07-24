@@ -7,6 +7,7 @@ import { openModal, closeModal, modalBody } from "../../components/modal";
 import { statusBadge, statusLabel } from "../../components/status-badge";
 import { showToast } from "../../components/toast";
 import { navigate } from "../../router";
+import { PENCIL_ICON, TRASH_ICON } from "../../components/icons";
 
 export const LEASE_TYPE_LABELS: Record<string, string> = {
   residential: "Résidentiel",
@@ -316,6 +317,7 @@ export async function renderAdminLeases() {
     renderDataTable(tableEl, {
       rows: leases,
       emptyMessage: "Aucune location enregistrée.",
+      emptyCta: { label: "Nouvelle location", onClick: () => content.querySelector<HTMLButtonElement>("#new-lease")!.click() },
       onRowClick: (l) => navigate(`/admin/leases/${l.id}`),
       columns: [
         { label: "Bien", render: (l) => (l.properties ? `${l.properties.reference} — ${l.properties.city}` : "—") },
@@ -328,6 +330,8 @@ export async function renderAdminLeases() {
       actions: [
         {
           label: "Modifier",
+          icon: PENCIL_ICON,
+          variant: "solid",
           onClick: (l) => {
             const primary = l.lease_tenants.find((lt) => lt.is_primary) ?? l.lease_tenants[0];
             openLeaseModal(properties, tenants, organizationId, refresh, l, primary?.tenant_id);
@@ -335,7 +339,8 @@ export async function renderAdminLeases() {
         },
         {
           label: "Supprimer",
-          variant: "danger",
+          icon: TRASH_ICON,
+          variant: "solid-danger",
           onClick: (l) => confirmDeleteLease(l, refresh),
         },
       ],

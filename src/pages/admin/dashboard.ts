@@ -7,6 +7,7 @@ import { openModal, closeModal } from "../../components/modal";
 import { navigate } from "../../router";
 import { fetchPropertyOptions, fetchTenantOptions, openLeaseModal } from "./leases";
 import { openListingModal } from "./listings";
+import { KPI_ICONS, kpiIcon } from "../../components/icons";
 
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
@@ -87,15 +88,17 @@ async function fetchAvailableCount(): Promise<number> {
   return count ?? 0;
 }
 
-function kpiCard(label: string, value: string, alert?: boolean): string {
+function kpiCard(label: string, value: string, icon: keyof typeof KPI_ICONS, href: string, alert?: boolean): string {
   return `
-    <div class="${CARD_CLASSES} p-4">
+    <a href="${href}" data-link class="${CARD_CLASSES} p-4 block hover:border-secondary transition-colors">
       <div class="flex items-center justify-between">
-        <p class="text-xs text-slate-500 dark:text-slate-400">${label}</p>
+        <p class="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+          <span class="text-slate-400 dark:text-slate-500">${kpiIcon(icon)}</span>${label}
+        </p>
         ${alert ? `<span class="text-[10px] font-semibold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 rounded-full px-2 py-0.5">Action requise</span>` : ""}
       </div>
       <p class="text-xl font-semibold text-slate-900 dark:text-slate-100 mt-1">${value}</p>
-    </div>
+    </a>
   `;
 }
 
@@ -379,20 +382,36 @@ async function fetchAvailableProperties(): Promise<Property[]> {
   return (data as Property[] | null) ?? [];
 }
 
-function galleryHtml(properties: Property[]): string {
+async function fetchCoverPhotos(propertyIds: string[]): Promise<Map<string, string>> {
+  if (propertyIds.length === 0) return new Map();
+  const { data } = await supabase
+    .from("property_photos")
+    .select("property_id, file_path, position")
+    .in("property_id", propertyIds)
+    .order("position");
+  const covers = new Map<string, string>();
+  for (const photo of data ?? []) {
+    if (!covers.has(photo.property_id)) covers.set(photo.property_id, photo.file_path);
+  }
+  return covers;
+}
+
+function galleryHtml(properties: Property[], covers: Map<string, string>): string {
   if (properties.length === 0) {
     return `<p class="text-sm text-slate-500 dark:text-slate-400 py-2">Aucun bien disponible actuellement.</p>`;
   }
   return `
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
       ${properties
-        .map(
-          (p) => `
+        .map((p) => {
+          const coverPath = covers.get(p.id);
+          const coverUrl = coverPath ? supabase.storage.from("property-photos").getPublicUrl(coverPath).data.publicUrl : null;
+          return `
         <a href="/admin/properties/${p.id}" data-link class="${CARD_CLASSES} overflow-hidden hover:border-secondary transition-colors block">
           <div class="h-24 bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
             ${
-              p.cover_image_url
-                ? `<img src="${p.cover_image_url}" alt="${p.reference}" class="w-full h-full object-cover" />`
+              coverUrl
+                ? `<img src="${coverUrl}" alt="${p.reference}" class="w-full h-full object-cover" />`
                 : `<svg class="w-8 h-8 text-slate-300 dark:text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>`
             }
           </div>
@@ -403,8 +422,8 @@ function galleryHtml(properties: Property[]): string {
               <span class="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0"></span>Disponible
             </span>
           </div>
-        </a>`
-        )
+        </a>`;
+        })
         .join("")}
     </div>
   `;
@@ -480,11 +499,11 @@ export async function renderAdminDashboard() {
   ]);
 
   content.querySelector<HTMLDivElement>("#kpi-grid")!.innerHTML = [
-    kpiCard("Baux actifs", String(activeLeases)),
-    kpiCard("CA du mois", `${monthRevenue.toLocaleString("fr-FR")} MUR`),
-    kpiCard("Taux d'occupation", `${occupancyRate}%`),
-    kpiCard("Impayés en retard", `${overdue.total.toLocaleString("fr-FR")} MUR`, overdue.count > 0),
-    kpiCard("Biens disponibles", String(availableCount)),
+    kpiCard("Baux actifs", String(activeLeases), "contract", "/admin/leases"),
+    kpiCard("CA du mois", `${monthRevenue.toLocaleString("fr-FR")} MUR`, "money", "/admin/payments"),
+    kpiCard("Taux d'occupation", `${occupancyRate}%`, "building", "/admin/properties"),
+    kpiCard("Impayés en retard", `${overdue.total.toLocaleString("fr-FR")} MUR`, "alert", "/admin/payments", overdue.count > 0),
+    kpiCard("Biens disponibles", String(availableCount), "home", "/admin/properties"),
   ].join("");
 
   content.querySelector<HTMLDivElement>("#upcoming-charges")!.innerHTML = upcomingChargesHtml(upcoming);
@@ -493,7 +512,8 @@ export async function renderAdminDashboard() {
     loadGantt(Number((e.target as HTMLSelectElement).value));
   });
 
-  content.querySelector<HTMLDivElement>("#gallery")!.innerHTML = galleryHtml(availableProperties);
+  const covers = await fetchCoverPhotos(availableProperties.map((p) => p.id));
+  content.querySelector<HTMLDivElement>("#gallery")!.innerHTML = galleryHtml(availableProperties, covers);
 
   content.querySelector<HTMLButtonElement>("#new-lease-btn")!.addEventListener("click", async () => {
     const [properties, tenants] = await Promise.all([fetchPropertyOptions(), fetchTenantOptions()]);

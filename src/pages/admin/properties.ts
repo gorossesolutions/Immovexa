@@ -1,6 +1,6 @@
 ﻿import { supabase } from "../../lib/supabase";
 import { getCurrentProfile } from "../../lib/auth";
-import type { OwnerOption, Property, PropertyCommercialStatus, UnitScope } from "../../lib/types";
+import type { OwnerOption, Property, PropertyCommercialStatus, PropertyOwner, UnitScope } from "../../lib/types";
 import { renderPortalShell } from "../../components/nav-sidebar";
 import { renderDataTable } from "../../components/data-table";
 import { openModal, closeModal, modalBody } from "../../components/modal";
@@ -8,9 +8,7 @@ import { statusBadge, statusLabel } from "../../components/status-badge";
 import { COMMERCIAL_STATUS_LABELS } from "../../lib/status-labels";
 import { showToast } from "../../components/toast";
 import { navigate } from "../../router";
-
-const PENCIL_ICON = '<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
-const TRASH_ICON = '<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>';
+import { PENCIL_ICON, TRASH_ICON } from "../../components/icons";
 
 export const UNIT_SCOPE_LABELS: Record<UnitScope, string> = {
   entire_property: "Bien entier",
@@ -63,9 +61,43 @@ export async function fetchOwners(): Promise<OwnerOption[]> {
   return data as OwnerOption[];
 }
 
-function propertyFormHtml(owners: OwnerOption[], property?: Property): string {
-  const ownerOptions = owners
-    .map((o) => `<option value="${o.id}" ${property?.owner_id === o.id ? "selected" : ""}>${o.full_name}</option>`)
+export async function fetchPropertyOwners(propertyId: string): Promise<PropertyOwner[]> {
+  const { data, error } = await supabase
+    .from("property_owners")
+    .select("id, property_id, owner_id, ownership_percentage, profiles:owner_id (full_name)")
+    .eq("property_id", propertyId);
+  if (error || !data) return [];
+  return (data as any[]).map((row) => ({
+    id: row.id,
+    property_id: row.property_id,
+    owner_id: row.owner_id,
+    ownership_percentage: row.ownership_percentage,
+    full_name: row.profiles?.full_name ?? "—",
+  }));
+}
+
+function propertyFormHtml(owners: OwnerOption[], property?: Property, currentOwners: PropertyOwner[] = []): string {
+  const isMulti = currentOwners.length > 1;
+  const singleOwnerId = currentOwners.length === 1 ? currentOwners[0].owner_id : "";
+
+  const singleOwnerOptions = owners
+    .map((o) => `<option value="${o.id}" ${singleOwnerId === o.id ? "selected" : ""}>${o.full_name}</option>`)
+    .join("");
+
+  const ownersFieldset = owners
+    .map((o) => {
+      const current = currentOwners.find((co) => co.owner_id === o.id);
+      return `
+      <div class="flex items-center gap-3">
+        <label class="flex items-center gap-2 flex-1 text-sm text-slate-700 dark:text-slate-300">
+          <input type="checkbox" name="owner_selected" value="${o.id}" ${current ? "checked" : ""} class="owner-checkbox" />
+          ${o.full_name}
+        </label>
+        <input type="number" min="0" max="100" step="0.01" placeholder="%" data-owner-pct="${o.id}"
+          value="${current?.ownership_percentage ?? ""}"
+          class="w-20 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 px-2 py-1 text-sm" />
+      </div>`;
+    })
     .join("");
 
   const typeOptions = Object.entries(PROPERTY_TYPE_LABELS)
@@ -127,10 +159,28 @@ function propertyFormHtml(owners: OwnerOption[], property?: Property): string {
       </div>
 
       <div>
-        <label class="block text-sm text-slate-500 dark:text-slate-400 mb-1">Propriétaire *</label>
-        <select name="owner_id" required class="w-full rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 px-3 py-2 text-sm">
-          <option value="">Sélectionner…</option>${ownerOptions}
-        </select>
+        <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300 mb-2">
+          <input type="checkbox" id="multi-owner-toggle" ${isMulti ? "checked" : ""} />
+          Multi-propriétaires
+        </label>
+
+        <div id="single-owner-block" class="${isMulti ? "hidden" : ""}">
+          <label class="block text-sm text-slate-500 dark:text-slate-400 mb-1">Propriétaire *</label>
+          <select id="single-owner-select" class="w-full rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 px-3 py-2 text-sm">
+            <option value="">Sélectionner…</option>${singleOwnerOptions}
+          </select>
+        </div>
+
+        <div id="multi-owner-block" class="${isMulti ? "" : "hidden"}">
+          <label class="block text-sm text-slate-500 dark:text-slate-400 mb-1">Propriétaires <span class="text-xs text-slate-400">(répartition en %)</span></label>
+          <div id="owners-fieldset" class="space-y-2 border border-slate-300 dark:border-slate-700 rounded-md p-3">${ownersFieldset}</div>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-sm text-slate-500 dark:text-slate-400 mb-1">Commission (%) <span class="text-xs text-slate-400">(accord éventuel, 0 accepté)</span></label>
+        <input name="commission_rate" type="number" min="0" max="100" step="0.01" value="${property?.commission_rate ?? ""}"
+          class="w-full sm:w-40 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 px-3 py-2 text-sm" />
       </div>
 
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -228,7 +278,7 @@ function readFormPayload(form: HTMLFormElement) {
     city: String(fd.get("city") ?? "").trim(),
     region: String(fd.get("region") ?? "").trim() || null,
     postal_code: String(fd.get("postal_code") ?? "").trim() || null,
-    owner_id: String(fd.get("owner_id")),
+    commission_rate: num("commission_rate"),
     surface_area: num("surface_area"),
     rooms: num("rooms"),
     bedrooms: num("bedrooms"),
@@ -244,35 +294,72 @@ function readFormPayload(form: HTMLFormElement) {
   };
 }
 
+function readOwnersPayload(form: HTMLFormElement): { owner_id: string; ownership_percentage: number | null }[] {
+  const isMulti = form.querySelector<HTMLInputElement>("#multi-owner-toggle")!.checked;
+
+  if (!isMulti) {
+    const ownerId = form.querySelector<HTMLSelectElement>("#single-owner-select")!.value;
+    return ownerId ? [{ owner_id: ownerId, ownership_percentage: 100 }] : [];
+  }
+
+  return Array.from(form.querySelectorAll<HTMLInputElement>(".owner-checkbox:checked")).map((checkbox) => {
+    const ownerId = checkbox.value;
+    const pctInput = form.querySelector<HTMLInputElement>(`[data-owner-pct="${ownerId}"]`);
+    const pct = pctInput?.value.trim();
+    return { owner_id: ownerId, ownership_percentage: pct ? Number(pct) : null };
+  });
+}
+
 export async function openPropertyModal(
   owners: OwnerOption[],
   organizationId: string,
   onSaved: () => void,
   property?: Property
 ) {
-  openModal(property ? `Modifier ${property.reference}` : "Nouveau bien", propertyFormHtml(owners, property));
+  const currentOwners = property ? await fetchPropertyOwners(property.id) : [];
+  openModal(property ? `Modifier ${property.reference}` : "Nouveau bien", propertyFormHtml(owners, property, currentOwners));
 
   const form = modalBody().querySelector<HTMLFormElement>("#property-form")!;
   const errorEl = modalBody().querySelector<HTMLParagraphElement>("#form-error")!;
   modalBody().querySelector<HTMLButtonElement>("#cancel-btn")!.addEventListener("click", closeModal);
 
+  const multiToggle = form.querySelector<HTMLInputElement>("#multi-owner-toggle")!;
+  const singleBlock = form.querySelector<HTMLDivElement>("#single-owner-block")!;
+  const multiBlock = form.querySelector<HTMLDivElement>("#multi-owner-block")!;
+  multiToggle.addEventListener("change", () => {
+    singleBlock.classList.toggle("hidden", multiToggle.checked);
+    multiBlock.classList.toggle("hidden", !multiToggle.checked);
+  });
+
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     errorEl.classList.add("hidden");
     const payload = readFormPayload(form);
+    const ownersPayload = readOwnersPayload(form);
 
-    if (!payload.owner_id) {
-      errorEl.textContent = "Sélectionnez un propriétaire.";
+    if (ownersPayload.length === 0) {
+      errorEl.textContent = "Sélectionnez au moins un propriétaire.";
       errorEl.classList.remove("hidden");
       return;
     }
 
-    const { error } = property
-      ? await supabase.from("properties").update(payload).eq("id", property.id)
-      : await supabase.from("properties").insert({ ...payload, organization_id: organizationId });
+    const { data: savedProperty, error } = property
+      ? await supabase.from("properties").update(payload).eq("id", property.id).select("id").single()
+      : await supabase.from("properties").insert({ ...payload, organization_id: organizationId }).select("id").single();
 
-    if (error) {
-      errorEl.textContent = error.message;
+    if (error || !savedProperty) {
+      errorEl.textContent = error?.message ?? "Erreur lors de l'enregistrement";
+      errorEl.classList.remove("hidden");
+      return;
+    }
+
+    await supabase.from("property_owners").delete().eq("property_id", savedProperty.id);
+    const { error: ownersError } = await supabase
+      .from("property_owners")
+      .insert(ownersPayload.map((o) => ({ property_id: savedProperty.id, owner_id: o.owner_id, ownership_percentage: o.ownership_percentage })));
+
+    if (ownersError) {
+      errorEl.textContent = ownersError.message;
       errorEl.classList.remove("hidden");
       return;
     }
@@ -337,6 +424,7 @@ export async function renderAdminProperties() {
     renderDataTable(tableEl, {
       rows: properties,
       emptyMessage: "Aucun bien enregistré.",
+      emptyCta: { label: "Nouveau bien", onClick: () => content.querySelector<HTMLButtonElement>("#new-property")!.click() },
       onRowClick: (p) => navigate(`/admin/properties/${p.id}`),
       columns: [
         { label: "Référence", render: (p) => `<span class="font-medium">${p.reference}</span>` },

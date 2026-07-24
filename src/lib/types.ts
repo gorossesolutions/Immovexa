@@ -7,7 +7,6 @@ export type UnitScope = "entire_property" | "floor_only" | "room_only";
 export interface Property {
   id: string;
   organization_id: string;
-  owner_id: string;
   reference: string;
   address_line: string;
   city: string;
@@ -26,9 +25,26 @@ export interface Property {
   unit_scope: UnitScope;
   currency: Currency;
   description: string | null;
-  cover_image_url: string | null;
+  parent_property_id: string | null;
+  commission_rate: number | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface PropertyOwner {
+  id: string;
+  property_id: string;
+  owner_id: string;
+  ownership_percentage: number | null;
+  full_name: string;
+}
+
+export interface PropertyPhoto {
+  id: string;
+  property_id: string;
+  file_path: string;
+  position: number;
+  created_at: string;
 }
 
 export type CommercialStatus =
@@ -242,6 +258,35 @@ export interface Payment {
   amount: number;
   payment_date: string;
   payment_method: PaymentMethod | null;
+  notes: string | null;
+  created_at: string;
+}
+
+export type ContactCategory =
+  | "plumber"
+  | "electrician"
+  | "locksmith"
+  | "cleaner"
+  | "gardener"
+  | "painter"
+  | "general_contractor"
+  | "concierge"
+  | "notary"
+  | "land_surveyor"
+  | "lawyer"
+  | "insurance_agent"
+  | "other";
+
+export interface AddressBookContact {
+  id: string;
+  organization_id: string;
+  category: ContactCategory;
+  full_name: string;
+  company_name: string | null;
+  phone: string | null;
+  email: string | null;
+  license_number: string | null;
+  insurance_expiry: string | null;
   notes: string | null;
   created_at: string;
 }

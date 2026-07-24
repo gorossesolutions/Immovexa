@@ -7,6 +7,7 @@ import { openModal, closeModal, modalBody } from "../../components/modal";
 import { statusBadge, statusLabel, creditBadge } from "../../components/status-badge";
 import { showToast } from "../../components/toast";
 import { downloadChargePdf } from "../../lib/pdf";
+import { PENCIL_ICON, TRASH_ICON } from "../../components/icons";
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
   bank_transfer: "Virement",
@@ -417,6 +418,7 @@ export async function renderAdminPayments() {
     renderDataTable(tableEl, {
       rows: charges,
       emptyMessage: "Aucune échéance enregistrée.",
+      emptyCta: { label: "Nouvelle échéance", onClick: () => content.querySelector<HTMLButtonElement>("#new-charge")!.click() },
       columns: [
         { label: "Bien", render: (c) => (c.context ? `${c.context.propertyRef} — ${c.context.city}` : "—") },
         {
@@ -453,11 +455,14 @@ export async function renderAdminPayments() {
         },
         {
           label: "Modifier",
+          icon: PENCIL_ICON,
+          variant: "solid",
           onClick: (c) => openChargeModal(leases, organizationId, refresh, c),
         },
         {
           label: "Supprimer",
-          variant: "danger",
+          icon: TRASH_ICON,
+          variant: "solid-danger",
           onClick: (c) => confirmDeleteCharge(c, refresh),
         },
       ],

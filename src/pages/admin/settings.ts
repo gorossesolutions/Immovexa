@@ -53,7 +53,7 @@ export async function renderAdminSettings() {
 
   content.innerHTML = `
     <h1 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">Paramètres</h1>
-    <p class="text-sm text-slate-500 dark:text-slate-400 mb-6">Marque blanche — ces réglages s'appliquent à toute l'organisation, sans toucher au code.</p>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mb-6">Personnalisez l'apparence de votre espace : logo, couleurs et nom affichés à toute votre équipe, vos propriétaires et vos locataires.</p>
 
     <form id="branding-form" class="max-w-xl space-y-6 ${CARD_CLASSES} p-6">
       <div>

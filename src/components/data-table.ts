@@ -1,4 +1,6 @@
-﻿export interface DataTableColumn<T> {
+﻿import { EMPTY_ICON } from "./icons";
+
+export interface DataTableColumn<T> {
   label: string;
   render: (row: T) => string;
 }
@@ -23,6 +25,8 @@ export interface DataTableOptions<T extends { id: string }> {
   actions?: DataTableAction<T>[];
   filters?: DataTableFilter<T>[];
   emptyMessage?: string;
+  emptySubtitle?: string;
+  emptyCta?: { label: string; onClick: () => void };
   onRowClick?: (row: T) => void;
 }
 
@@ -32,10 +36,24 @@ function drawTable<T extends { id: string }>(
   container: HTMLElement,
   opts: Omit<DataTableOptions<T>, "filters">
 ) {
-  const { columns, rows, actions = [], emptyMessage = "Aucune donnée.", onRowClick } = opts;
+  const { columns, rows, actions = [], emptyMessage = "Aucune donnée.", emptySubtitle, emptyCta, onRowClick } = opts;
 
   if (rows.length === 0) {
-    container.innerHTML = `<p class="text-sm text-slate-500 dark:text-slate-400 py-8 text-center">${emptyMessage}</p>`;
+    container.innerHTML = `
+      <div class="flex flex-col items-center justify-center gap-2 py-12 text-center">
+        <span class="text-slate-300 dark:text-slate-700">${EMPTY_ICON}</span>
+        <p class="text-sm font-medium text-slate-700 dark:text-slate-300">${emptyMessage}</p>
+        <p class="text-xs text-slate-400 dark:text-slate-500">${emptySubtitle ?? "Les éléments ajoutés apparaîtront ici."}</p>
+        ${
+          emptyCta
+            ? `<button id="empty-state-cta" class="mt-2 rounded-md bg-secondary text-secondary-ink text-sm font-medium px-4 py-2 hover:opacity-90">${emptyCta.label}</button>`
+            : ""
+        }
+      </div>
+    `;
+    if (emptyCta) {
+      container.querySelector<HTMLButtonElement>("#empty-state-cta")!.addEventListener("click", emptyCta.onClick);
+    }
     return;
   }
 
@@ -77,7 +95,7 @@ function drawTable<T extends { id: string }>(
     .join("");
 
   container.innerHTML = `
-    <div class="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+    <div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
       <table class="w-full">
         <thead class="bg-slate-50 dark:bg-slate-800/60"><tr>${headCells}${actionsHead}</tr></thead>
         <tbody>${bodyRows}</tbody>

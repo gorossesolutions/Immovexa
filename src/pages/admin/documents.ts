@@ -450,6 +450,7 @@ export async function renderAdminDocuments() {
     renderDataTable(tableEl, {
       rows: documents,
       emptyMessage: "Aucun document.",
+      emptyCta: { label: "Ajouter un document", onClick: () => content.querySelector<HTMLButtonElement>("#upload-doc")!.click() },
       columns: [
         { label: "Fichier", render: (d) => `<span class="font-medium">${d.file_name}</span>` },
         { label: "Entité", render: (d) => ENTITY_TYPE_LABELS[d.entity_type] },

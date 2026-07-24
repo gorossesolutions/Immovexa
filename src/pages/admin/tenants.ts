@@ -5,6 +5,7 @@ import { renderDataTable } from "../../components/data-table";
 import { statusBadge, statusLabel } from "../../components/status-badge";
 import { showToast } from "../../components/toast";
 import { navigate } from "../../router";
+import { openImportModal } from "../../components/import-modal";
 
 interface LeaseInfo {
   status: string;
@@ -52,23 +53,37 @@ export async function renderAdminTenants() {
 
   const content = renderPortalShell(profile, "/admin/tenants");
   content.innerHTML = `
-    <h1 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">Locataires</h1>
+    <div class="flex items-center justify-between mb-4">
+      <h1 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Locataires</h1>
+      <button id="import-tenants" class="rounded-md border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-sm font-medium px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-800">
+        Importer
+      </button>
+    </div>
     <div id="tenants-table"></div>
   `;
 
   const tableEl = content.querySelector<HTMLDivElement>("#tenants-table")!;
-  const tenants = await fetchTenants();
 
-  renderDataTable(tableEl, {
-    rows: tenants,
-    emptyMessage: "Aucun locataire.",
-    onRowClick: (t) => navigate(`/admin/tenants/${t.id}`),
-    columns: [
-      { label: "Nom", render: (t) => `<span class="font-medium">${t.full_name}</span>` },
-      { label: "Contact", render: (t) => `${t.email}${t.phone ? ` · ${t.phone}` : ""}` },
-      { label: "Bien", render: (t) => (t.lease ? `${t.lease.properties?.reference ?? "—"} — ${t.lease.properties?.city ?? ""}` : "Aucun bien") },
-      { label: "Statut du bail", render: (t) => (t.lease ? statusBadge(t.lease.status) : "—") },
-    ],
-    filters: [{ key: "status", label: "Statut", value: (t) => (t.lease ? statusLabel(t.lease.status) : "Aucun bien") }],
+  async function refresh() {
+    const tenants = await fetchTenants();
+    renderDataTable(tableEl, {
+      rows: tenants,
+      emptyMessage: "Aucun locataire.",
+      emptyCta: { label: "Importer des locataires", onClick: () => content.querySelector<HTMLButtonElement>("#import-tenants")!.click() },
+      onRowClick: (t) => navigate(`/admin/tenants/${t.id}`),
+      columns: [
+        { label: "Nom", render: (t) => `<span class="font-medium">${t.full_name}</span>` },
+        { label: "Contact", render: (t) => `${t.email}${t.phone ? ` · ${t.phone}` : ""}` },
+        { label: "Bien", render: (t) => (t.lease ? `${t.lease.properties?.reference ?? "—"} — ${t.lease.properties?.city ?? ""}` : "Aucun bien") },
+        { label: "Statut du bail", render: (t) => (t.lease ? statusBadge(t.lease.status) : "—") },
+      ],
+      filters: [{ key: "status", label: "Statut", value: (t) => (t.lease ? statusLabel(t.lease.status) : "Aucun bien") }],
+    });
+  }
+
+  content.querySelector<HTMLButtonElement>("#import-tenants")!.addEventListener("click", () => {
+    openImportModal("tenant", "locataires", refresh);
   });
+
+  await refresh();
 }

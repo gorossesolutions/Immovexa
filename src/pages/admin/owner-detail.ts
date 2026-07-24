@@ -21,8 +21,14 @@ async function fetchOwner(id: string): Promise<OwnerProfile | null> {
 }
 
 async function fetchOwnerProperties(ownerId: string): Promise<Property[]> {
-  const { data } = await supabase.from("properties").select("*").eq("owner_id", ownerId).order("reference");
-  return (data as Property[] | null) ?? [];
+  const { data } = await supabase
+    .from("property_owners")
+    .select("properties(*)")
+    .eq("owner_id", ownerId);
+  return ((data as any[] | null) ?? [])
+    .map((row) => row.properties as Property)
+    .filter(Boolean)
+    .sort((a, b) => a.reference.localeCompare(b.reference));
 }
 
 export async function renderAdminOwnerDetail(params: Record<string, string>) {

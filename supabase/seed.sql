@@ -16,7 +16,38 @@
 --   tenant-credit : bail actif avec trop-perçu non affecté (Phase 3)
 --   tenant-nolease: aucun bail (cas "Aucun bien" de admin/tenants.ts)
 --   tenant-past   : bail 'ended', aucun bail actif
+--   owner-land    : terrain (TN-909) subdivisé en 2 lots (Phase 2b)
+--   GB-101        : bien co-détenu owner/owner-multi à 60/40 (Phase 2a, multi-propriétaire)
+--   Carnet d'adresses : 5 contacts (assurance expirée / bientôt expirée / à jour / sans expiration)
 -- ============================================================
+
+-- ============================================================
+-- GARDE-FOU — refuse de s'exécuter sur une base qui contient déjà des
+-- données réelles (protection contre un reseed accidentel en prod).
+--
+-- Un script SQL exécuté via `supabase db reset` / psql n'a pas accès
+-- direct à une variable d'environnement OS comme ENVIRONMENT=production
+-- (ça n'existe pas côté Postgres). Le contrôle le plus fiable est donc
+-- factuel plutôt que déclaratif : si `organizations` contient déjà des
+-- lignes, ce n'est PAS une base de dev vierge — on refuse d'insérer les
+-- comptes/données de démonstration par-dessus.
+--
+-- En complément, si un jour un paramètre Postgres app.settings.environment
+-- est configuré sur le projet (ex. custom Postgres config côté Supabase
+-- Cloud), il est aussi vérifié ici — mais c'est la vérification factuelle
+-- ci-dessus qui protège réellement, elle ne dépend d'aucune configuration
+-- externe et fonctionne identiquement en local et sur Supabase Cloud.
+-- ============================================================
+do $$
+begin
+  if current_setting('app.settings.environment', true) = 'production' then
+    raise exception 'seed.sql refusé : app.settings.environment = production.';
+  end if;
+
+  if exists (select 1 from organizations limit 1) then
+    raise exception 'seed.sql refusé : la table organizations contient déjà des données. Ce script est réservé à une base de développement vierge — jamais à une base contenant de vraies données (ex. production). Si tu es sûr de vouloir reseed un environnement de test déjà peuplé, vide d''abord les tables concernées explicitement.';
+  end if;
+end $$;
 
 -- ---------- ORGANIZATION ----------
 insert into organizations (id, name, slug, currency, locale, plan_code)
@@ -224,6 +255,17 @@ insert into auth.users (
     '{"provider":"email","providers":["email"]}',
     '{"full_name":"Ravi Sunassee"}',
     false, now(), now()
+  ),
+  (
+    '00000000-0000-0000-0000-000000000000',
+    'a0000000-0000-4000-8000-0000000000b6',
+    'authenticated', 'authenticated',
+    'owner-land@grimmotest.mu',
+    crypt('Password123!', gen_salt('bf')),
+    now(), '', '', '', '',
+    '{"provider":"email","providers":["email"]}',
+    '{"full_name":"Rajesh Bundhoo"}',
+    false, now(), now()
   );
 
 -- Générée depuis auth.users plutôt que listée à la main : mécanique et
@@ -257,7 +299,8 @@ insert into profiles (id, organization_id, role, full_name, email, phone) values
   ('a0000000-0000-4000-8000-0000000000b5', 'a0000000-0000-4000-8000-000000000001', 'owner', 'Vikash Gopaul', 'owner-empty@grimmotest.mu', '+230 5711 8899'),
   ('a0000000-0000-4000-8000-0000000000c3', 'a0000000-0000-4000-8000-000000000001', 'tenant', 'Ashwin Ramnauth', 'tenant-credit@grimmotest.mu', '+230 5822 9900'),
   ('a0000000-0000-4000-8000-0000000000c4', 'a0000000-0000-4000-8000-000000000001', 'tenant', 'Louis Ah-Kim', 'tenant-nolease@grimmotest.mu', '+230 5833 0011'),
-  ('a0000000-0000-4000-8000-0000000000c5', 'a0000000-0000-4000-8000-000000000001', 'tenant', 'Ravi Sunassee', 'tenant-past@grimmotest.mu', '+230 5844 1122');
+  ('a0000000-0000-4000-8000-0000000000c5', 'a0000000-0000-4000-8000-000000000001', 'tenant', 'Ravi Sunassee', 'tenant-past@grimmotest.mu', '+230 5844 1122'),
+  ('a0000000-0000-4000-8000-0000000000b6', 'a0000000-0000-4000-8000-000000000001', 'owner', 'Rajesh Bundhoo', 'owner-land@grimmotest.mu', '+230 5855 2233');
 
 -- ---------- PROPERTIES ----------
 -- P1 : Grand Baie, appartement loué (tenant1)
@@ -393,6 +436,78 @@ insert into properties (
   'Local commercial en rez-de-chaussée, actuellement sans locataire ni annonce.'
 );
 
+-- P8 : Bel Ombre, terrain du propriétaire owner-land — subdivisé en 2 lots (Phase 2b)
+insert into properties (
+  id, organization_id, owner_id, reference, address_line, city, region, postal_code,
+  property_type, surface_area, status, ownership_scheme, currency, description
+) values (
+  'b0000000-0000-4000-8000-000000000008',
+  'a0000000-0000-4000-8000-000000000001',
+  'a0000000-0000-4000-8000-0000000000b6',
+  'TN-909',
+  'Route Côtière',
+  'Bel Ombre',
+  'Savanne',
+  '90501',
+  'land', 2500, 'vacant',
+  'freehold', 'MUR',
+  'Terrain non loti proche du littoral, subdivisé en 2 lots.'
+);
+
+-- P9/P10 : lots issus de TN-909 (parent_property_id renseigné en 0017, mis à jour ci-dessous)
+insert into properties (
+  id, organization_id, owner_id, reference, address_line, city, region, postal_code,
+  property_type, surface_area, status, ownership_scheme, currency, description
+) values (
+  'b0000000-0000-4000-8000-000000000009',
+  'a0000000-0000-4000-8000-000000000001',
+  'a0000000-0000-4000-8000-0000000000b6',
+  'TN-909-A',
+  'Route Côtière, Lot A',
+  'Bel Ombre',
+  'Savanne',
+  '90501',
+  'land', 1200, 'vacant',
+  'freehold', 'MUR',
+  'Lot A issu de la subdivision de TN-909.'
+);
+
+insert into properties (
+  id, organization_id, owner_id, reference, address_line, city, region, postal_code,
+  property_type, surface_area, status, ownership_scheme, currency, description
+) values (
+  'b0000000-0000-4000-8000-00000000000a',
+  'a0000000-0000-4000-8000-000000000001',
+  'a0000000-0000-4000-8000-0000000000b6',
+  'TN-909-B',
+  'Route Côtière, Lot B',
+  'Bel Ombre',
+  'Savanne',
+  '90501',
+  'land', 1300, 'vacant',
+  'freehold', 'MUR',
+  'Lot B issu de la subdivision de TN-909.'
+);
+
+update properties set parent_property_id = 'b0000000-0000-4000-8000-000000000008'
+where id in ('b0000000-0000-4000-8000-000000000009', 'b0000000-0000-4000-8000-00000000000a');
+
+-- ---------- PROPERTY_OWNERS ----------
+-- Un propriétaire à 100% pour la plupart des biens ; GB-101 est volontairement
+-- co-détenu (60/40) pour tester l'affichage multi-propriétaire en UAT.
+insert into property_owners (property_id, owner_id, ownership_percentage) values
+  ('b0000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-0000000000b1', 60),
+  ('b0000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-0000000000b2', 40),
+  ('b0000000-0000-4000-8000-000000000002', 'a0000000-0000-4000-8000-0000000000b1', 100),
+  ('b0000000-0000-4000-8000-000000000003', 'a0000000-0000-4000-8000-0000000000b1', 100),
+  ('b0000000-0000-4000-8000-000000000004', 'a0000000-0000-4000-8000-0000000000b1', 100),
+  ('b0000000-0000-4000-8000-000000000005', 'a0000000-0000-4000-8000-0000000000b2', 100),
+  ('b0000000-0000-4000-8000-000000000006', 'a0000000-0000-4000-8000-0000000000b3', 100),
+  ('b0000000-0000-4000-8000-000000000007', 'a0000000-0000-4000-8000-0000000000b4', 100),
+  ('b0000000-0000-4000-8000-000000000008', 'a0000000-0000-4000-8000-0000000000b6', 100),
+  ('b0000000-0000-4000-8000-000000000009', 'a0000000-0000-4000-8000-0000000000b6', 100),
+  ('b0000000-0000-4000-8000-00000000000a', 'a0000000-0000-4000-8000-0000000000b6', 100);
+
 -- ---------- LEASES ----------
 insert into leases (
   id, organization_id, property_id, status, start_date, end_date,
@@ -514,3 +629,12 @@ insert into listings (id, organization_id, property_id, listing_type, status, pr
 
 insert into sales (id, organization_id, listing_id, buyer_name, buyer_contact, offer_price, agreed_price, status, compromis_date, deed_date, notary_name, commission_amount) values
   ('20000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000002', 'Client Import Export Ltée', '+230 5211 3344', 5900000, 5800000, 'completed', '2026-05-15', '2026-07-01', 'Étude Maigrot & Associés', 174000);
+
+-- ---------- CARNET D'ADRESSES (Phase 3) ----------
+-- 3 cas de figure d'assurance couverts : expirée, bientôt expirée (<30j), à jour.
+insert into address_book_contacts (organization_id, category, full_name, company_name, phone, email, license_number, insurance_expiry, notes) values
+  ('a0000000-0000-4000-8000-000000000001', 'plumber', 'Anil Ramdoo', 'Ramdoo Plomberie', '+230 5911 2233', 'anil.ramdoo@example.mu', 'PL-4521', '2026-06-15', 'Assurance expirée — à relancer avant toute nouvelle intervention.'),
+  ('a0000000-0000-4000-8000-000000000001', 'electrician', 'Steven Fanchette', 'FanchElec', '+230 5922 3344', 'steven.fanchette@example.mu', 'EL-1187', '2026-08-10', 'Assurance bientôt expirée.'),
+  ('a0000000-0000-4000-8000-000000000001', 'notary', 'Me Aditi Beeharry', 'Étude Beeharry', '+230 5933 4455', 'contact@beeharry-notaire.mu', null, null, 'Notaire habituel pour les ventes.'),
+  ('a0000000-0000-4000-8000-000000000001', 'general_contractor', 'Jean-Marc Li Wan Po', 'JMLWP Construction', '+230 5944 5566', 'jm.liwanpo@example.mu', 'GC-3390', '2027-03-01', 'Intervenu sur la rénovation de TR-606.'),
+  ('a0000000-0000-4000-8000-000000000001', 'land_surveyor', 'Kevin Rughoobur', null, '+230 5955 6677', null, 'GEO-778', null, 'Pour le bornage des lots TN-909-A/B.');

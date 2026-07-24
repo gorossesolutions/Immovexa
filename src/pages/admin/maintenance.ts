@@ -140,6 +140,7 @@ export async function renderAdminMaintenance() {
     renderDataTable(tableEl, {
       rows: tickets,
       emptyMessage: "Aucune demande d'intervention.",
+      emptyCta: { label: "Nouvelle demande", onClick: () => content.querySelector<HTMLButtonElement>("#new-ticket")!.click() },
       onRowClick: (t) => navigate(`/admin/maintenance/${t.id}`),
       columns: [
         { label: "Bien", render: (t) => (t.properties ? `${t.properties.reference} — ${t.properties.city}` : "—") },
